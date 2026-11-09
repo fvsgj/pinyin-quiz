@@ -93,6 +93,8 @@ body{
 .bottombar{position:absolute;left:0;right:0;bottom:0;display:none;gap:10px;padding:12px 14px;
   background:linear-gradient(180deg,rgba(247,249,255,0),#f7f9ff 35%);z-index:20}
 .bottombar.show{display:flex}
+.autonext{flex:1;text-align:center;font-size:13px;color:#8595ab;font-weight:600;padding:8px 0;
+  background:rgba(255,255,255,.72);border-radius:14px;border:1px solid #e6ecf7}
 .fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;
   border:0;background:#fff;color:var(--blue);font-size:22px;box-shadow:0 6px 20px rgba(60,90,160,.22);display:none}
 .fab.show{display:block}
@@ -209,8 +211,7 @@ body{
     </section>
   </div>
   <div class="bottombar" id="nextActs">
-    <button class="btn ghost" onclick="skipQ()">跳过</button>
-    <button class="btn" id="nextBtn" onclick="advance()">下一题</button>
+    <div class="autonext" id="autoNext">答对/答错提示后自动进入下一题…</div>
   </div>
 </div>
 <button class="fab" id="fab" onclick="showScreen('home')">⌂</button>
@@ -315,6 +316,8 @@ function buildToneOptions(correct){
 let ROUND_LEN=15;                       // 每轮题量
 let curPart='initial';                 // 本题考声母还是韵母
 let partWrong=false;                   // 第一步是否选错
+let autoTimer=null;                    // 自动进入下一题的定时器
+let AUTO_NEXT_MS=2500;                 // 显示对错反馈后自动跳下一题的延迟
 
 function setMode(m){
   currentMode=m;
@@ -325,7 +328,7 @@ function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('scr-'+id).classList.add('active');
   document.getElementById('fab').classList.toggle('show',id==='quiz');
-  if(id!=='quiz') document.getElementById('nextActs').classList.remove('show');
+  if(id!=='quiz'){ document.getElementById('nextActs').classList.remove('show'); if(autoTimer){clearTimeout(autoTimer);autoTimer=null;} }
   document.getElementById('scoreBox').textContent = id==='home'?'':('第 '+(qi+1)+' 题');
   if(id==='home')renderHome();
 }
@@ -369,6 +372,7 @@ function advance(){ qi++; nextQ(); }
 function nextQ(){
   if(qi>=deck.length){finishRound();return;}
   qCur=deck[qi]; phase=1; partWrong=false; locked=false;
+  if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
   document.getElementById('step1Card').style.display='';
   document.getElementById('step3Card').style.display='none';
   document.getElementById('nextActs').classList.remove('show');
@@ -483,13 +487,12 @@ function judge(ok,missPart){
   document.getElementById('answerLine').textContent=(qCur.initial||qCur.syllable)+' － '+qCur.finalText+' － '+toneName(qCur.tone);
   document.getElementById('answerTip').textContent='拼一拼：'+ans;
   document.getElementById('nextActs').classList.add('show');
-  document.getElementById('nextBtn').textContent=(qi+1>=deck.length)?'看成绩':'下一题';
+  document.getElementById('autoNext').textContent=(qi+1>=deck.length)?'即将显示本轮成绩…':'即将自动进入下一题…';
   document.getElementById('fb2').scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(autoTimer)clearTimeout(autoTimer);
+  autoTimer=setTimeout(()=>{ if(locked)advance(); }, AUTO_NEXT_MS);
 }
-function skipQ(){
-  if(locked||phase!==1)return;
-  judge(false);
-}
+
 function finishRound(){
   document.getElementById('barFill').style.width='100%';
   const acc=deck.length?Math.round(right/deck.length*100):0;
